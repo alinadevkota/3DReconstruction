@@ -163,3 +163,5 @@ cython_debug/
 
 *.usd
 *.avi
+
+output/
