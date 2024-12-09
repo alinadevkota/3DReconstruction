@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+import numpy as np
 
 import warp as wp
 from warp.sim import ModelBuilder
@@ -51,7 +52,7 @@ def create_body(
                 hy=bp.dim[1]/2,
                 hz=bp.dim[2]/2,
                 density=bp.density,
-                collision_group=0, #! dont know
+                # collision_group=0, #! dont know
             )
             
         if bp.shape == 'sphere':
@@ -59,5 +60,16 @@ def create_body(
                 body,
                 radius = bp.radius,
                 density=bp.density,
-                collision_group=bp.collision_group,
+                # collision_group=bp.collision_group,
             )
+            
+
+def update_camera(renderer, cam=(5,5,5), target=(0,0,0)):
+    camera_pos = np.array(cam)
+    target_pos = np.array(target)
+    camera_front = np.subtract(target_pos, camera_pos)  # `target_position`
+    camera_front = camera_front / np.linalg.norm(camera_front)  # Normalize
+    camera_up = (0, 1, 0)
+    renderer.update_view_matrix(
+        cam_pos=camera_pos, cam_front=camera_front, cam_up=camera_up
+    )
