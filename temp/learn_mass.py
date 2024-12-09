@@ -4,6 +4,9 @@ import warp as wp
 import warp.sim
 import warp.sim.render
 
+from matprop3d.utils.env_utils import PoolEnvironment
+from matprop3d.utils.sim_utils import update_camera
+
 from warp.sim import ModelBuilder
 from tqdm import tqdm
 
@@ -60,23 +63,22 @@ class Example:
 
         #! Create Model
         builder = ModelBuilder()
-        self.mass = wp.float32(0.013)
         
-        #! Add a Particle
-        builder.add_particle(pos=wp.vec3(-6.0, 1.0, 0.0), vel=wp.vec3(5.0, -5.0, 0.0), mass=self.mass)
+        PoolEnvironment(builder)
+        
         
         #! Add a body Sphere
-        body = builder.add_body(
-            origin=wp.transform((0.0, 1.0, 0.0), (0,0,0,1)),
-            name="body_sphere"
-        ) 
+        # body = builder.add_body(
+        #     origin=wp.transform((0.0, 1.0, 0.0), (0,0,0,1)),
+        #     name="body_sphere"
+        # ) 
         
-        builder.add_shape_sphere(
-            body,
-            radius = 0.1,
-            density=500,
-            collision_group=0,
-        )
+        # builder.add_shape_sphere(
+        #     body,
+        #     radius = 0.1,
+        #     density=500,
+        #     collision_group=0,
+        # )
         
         #! Add bouncing surface
         # body2 = builder.add_body(
@@ -93,31 +95,21 @@ class Example:
         #         collision_group=0, #! dont know
         #     )
        
-        # print('this is body_qd') 
-        # print(builder.body_qd[0])
-        # exit()
 
-        builder.body_qd[0] = [0,0,0,-3,-1,0]
+
+        builder.body_qd[0] = [0,0,0,-3,0,0]
            
         #! Finalize Model bulding 
         self.model = builder.finalize(requires_grad=True)
         self.model.ground = True
 
-        self.model.soft_contact_ke = 1.0e4
-        self.model.soft_contact_kf = 0.0
-        self.model.soft_contact_kd = 1.0e1
-        self.model.soft_contact_mu = 0.2
-        self.model.soft_contact_margin = 10.0
-        self.model.soft_contact_restitution = 1.0
 
         #! Integrator
         self.integrator = wp.sim.SemiImplicitIntegrator()
 
         #! Training Params
-        self.target = (-2.0, 1.5, 0.0)
         self.target2 = (-1.0279006,   0.4391355,   0.)
         self.loss = wp.zeros(1, dtype=wp.float32, requires_grad=True)
-        self.train_rate = 1.0
         self.train_rate_body = 0.01
 
 
@@ -129,26 +121,23 @@ class Example:
         # one-shot contact creation (valid if we're doing simple collision against a constant normal plane)
         wp.sim.collide(self.model, self.states[0])
 
-
+        #! Renderer
         self.renderer = wp.sim.render.SimRendererOpenGL(model=self.model, path=None, scaling=1.0)
+        update_camera(self.renderer, cam=(0,5,5))
 
 
 
     def forward(self):
         for i in range(self.sim_steps):
             wp.sim.collide(self.model, self.states[i])
-            # print("Simulating with inv mass of: ", self.model.particle_inv_mass)
             self.states[i].clear_forces()
             self.integrator.simulate(self.model, self.states[i], self.states[i + 1], self.sim_dt)
 
-        wp.launch(loss_kernel, dim=1, inputs=[self.states[-1].particle_q, self.target, self.loss])
 
         wp.launch(loss_kernel_body, dim=1, inputs=[self.states[-1].body_q, self.target2, self.loss])
        
         print("forward function") 
-        print(self.states[-1].particle_q)
         print(self.states[-1].body_q)
-        print(self.target)
         print("forward function ends")
         # exit()
 
@@ -161,15 +150,6 @@ class Example:
             self.tape.backward(self.loss)
 
   
-            #! Update mass of particle 
-            print('updating particle mass')
-            x = self.model.particle_inv_mass
-            print(x.grad)
-            wp.launch(step_kernel_mass, dim=len(x), inputs=[x, x.grad, self.train_rate])
-            self.model.particle_inv_mass = x
-            self.model.particle_mass = 1/x.numpy()
-            x_grad = self.tape.gradients[self.model.particle_inv_mass]
-
             #! Update initial velocity of body
             # print("updating intial pose")
             # x_body = self.states[0].body_q
@@ -183,9 +163,6 @@ class Example:
             print(x_body_mass, x_body_mass.grad)
             wp.launch(step_kernel_mass, dim=len(x_body_mass), inputs=[x_body_mass, x_body_mass.grad, self.train_rate_body])
             self.model.body_inv_mass = x_body_mass
-            # self.model.body_mass = 1/x_body_mass.numpy()
-            # x_body_grad = self.tape.gradients[self.states[0].body_qd]
-            # exit()
             
             self.tape.zero()
             self.iter = self.iter + 1
@@ -195,23 +172,15 @@ class Example:
         if self.renderer is None:
             return
 
-        traj_verts = [self.states[0].particle_q.numpy()[0].tolist()]
         traj_verts_body = [self.states[0].body_q.numpy()[0][:3].tolist()]
         
         
         for i in range(0, self.sim_steps, self.sim_substeps):
-            traj_verts.append(self.states[i].particle_q.numpy()[0].tolist())
             traj_verts_body.append(self.states[i].body_q.numpy()[0][:3].tolist())
             
             self.renderer.begin_frame(self.render_time)
             self.renderer.render(self.states[i])
-            self.renderer.render_box(
-                pos=self.target,
-                rot=wp.quat_identity(),
-                extents=(0.1, 0.1, 0.1),
-                name="target",
-                color=(0.0, 0.0, 0.0),
-            )
+
             self.renderer.render_box(
                 pos=self.target2,
                 rot=wp.quat_identity(),
@@ -219,13 +188,6 @@ class Example:
                 name="target2",
                 color=(0.0, 1.0, 0.0),
             )
-            
-            self.renderer.render_line_strip(
-                    vertices=traj_verts,
-                    color=wp.render.bourke_color_map(0.0, 7.0, self.loss.numpy()[0]),
-                    radius=0.02,
-                    name=f"traj_{self.iter-1}",
-                )
             
             self.renderer.render_line_strip(
                     vertices=traj_verts_body,
