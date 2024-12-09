@@ -3,17 +3,6 @@ import warp as wp
 import warp.render
 from PIL import Image
 
-# @wp.kernel
-# def apply_gravity(position,
-#                   velocity,
-#                   dt=0.01
-#                   ):
-
-#     g = wp.vec3(0.0, -9.8, 0.0)  # Gravity vector
-#     velocity += g * dt
-#     position += velocity * dt
-#     return velocity, position
-
 
 class Example:
     def __init__(self):
