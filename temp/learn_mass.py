@@ -25,6 +25,7 @@ def step_kernel_mass(x: wp.array(dtype=wp.float32), grad: wp.array(dtype=wp.floa
     tid = wp.tid()
     x[tid] = x[tid] - grad[tid] * alpha
     
+    
 @wp.kernel
 def step_kernel(x: wp.array(dtype=wp.transform), grad: wp.array(dtype=wp.transform), alpha: float):
     tid = wp.tid()
@@ -62,26 +63,41 @@ class Example:
         self.mass = wp.float32(0.013)
         
         #! Add a Particle
-        builder.add_particle(pos=wp.vec3(-5.0, 1.0, 0.0), vel=wp.vec3(5.0, -5.0, 0.0), mass=self.mass)
+        builder.add_particle(pos=wp.vec3(-6.0, 1.0, 0.0), vel=wp.vec3(5.0, -5.0, 0.0), mass=self.mass)
         
         #! Add a body Sphere
         body = builder.add_body(
-            origin=wp.transform((0.0, 2.0, 0.0), (0,0,0,1)),
+            origin=wp.transform((0.0, 1.0, 0.0), (0,0,0,1)),
             name="body_sphere"
         ) 
         
         builder.add_shape_sphere(
             body,
             radius = 0.1,
-            density=10,
+            density=500,
             collision_group=0,
         )
+        
+        #! Add bouncing surface
+        # body2 = builder.add_body(
+        #     origin=wp.transform((0.0, 0.2, 0.0), (0,0,0,1)),
+        #     name="bouncing surface"
+        # ) 
+        
+        # builder.add_shape_box(
+        #         body2,
+        #         hx=2.0,
+        #         hy=0.05,
+        #         hz=2.0,
+        #         density=0,
+        #         collision_group=0, #! dont know
+        #     )
        
         # print('this is body_qd') 
         # print(builder.body_qd[0])
         # exit()
 
-        builder.body_qd[0] = [0,0,0,-2,3,0]
+        builder.body_qd[0] = [0,0,0,-3,-1,0]
            
         #! Finalize Model bulding 
         self.model = builder.finalize(requires_grad=True)
@@ -99,6 +115,7 @@ class Example:
 
         #! Training Params
         self.target = (-2.0, 1.5, 0.0)
+        self.target2 = (-1.0279006,   0.4391355,   0.)
         self.loss = wp.zeros(1, dtype=wp.float32, requires_grad=True)
         self.train_rate = 1.0
         self.train_rate_body = 0.01
@@ -119,18 +136,21 @@ class Example:
 
     def forward(self):
         for i in range(self.sim_steps):
+            wp.sim.collide(self.model, self.states[i])
             # print("Simulating with inv mass of: ", self.model.particle_inv_mass)
             self.states[i].clear_forces()
             self.integrator.simulate(self.model, self.states[i], self.states[i + 1], self.sim_dt)
 
         wp.launch(loss_kernel, dim=1, inputs=[self.states[-1].particle_q, self.target, self.loss])
 
-        wp.launch(loss_kernel_body, dim=1, inputs=[self.states[-1].body_q, self.target, self.loss])
+        wp.launch(loss_kernel_body, dim=1, inputs=[self.states[-1].body_q, self.target2, self.loss])
        
         print("forward function") 
         print(self.states[-1].particle_q)
         print(self.states[-1].body_q)
+        print(self.target)
         print("forward function ends")
+        # exit()
 
         return self.loss
 
@@ -140,18 +160,32 @@ class Example:
                 self.forward()
             self.tape.backward(self.loss)
 
-            x = self.model.particle_inv_mass
   
             #! Update mass of particle 
+            print('updating particle mass')
+            x = self.model.particle_inv_mass
+            print(x.grad)
             wp.launch(step_kernel_mass, dim=len(x), inputs=[x, x.grad, self.train_rate])
             self.model.particle_inv_mass = x
             self.model.particle_mass = 1/x.numpy()
             x_grad = self.tape.gradients[self.model.particle_inv_mass]
 
             #! Update initial velocity of body
-            x_body = self.states[0].body_q
-            wp.launch(step_kernel, dim=len(x_body), inputs=[x_body, x_body.grad, self.train_rate_body])
-            x_body_grad = self.tape.gradients[self.states[0].body_qd]
+            # print("updating intial pose")
+            # x_body = self.states[0].body_q
+            # print(x_body.grad)
+            # wp.launch(step_kernel, dim=len(x_body), inputs=[x_body, x_body.grad, self.train_rate_body])
+            # x_body_grad = self.tape.gradients[self.states[0].body_qd]
+            
+            #! Update mass of body
+            print('updating body mass')
+            x_body_mass = self.model.body_inv_mass
+            print(x_body_mass, x_body_mass.grad)
+            wp.launch(step_kernel_mass, dim=len(x_body_mass), inputs=[x_body_mass, x_body_mass.grad, self.train_rate_body])
+            self.model.body_inv_mass = x_body_mass
+            # self.model.body_mass = 1/x_body_mass.numpy()
+            # x_body_grad = self.tape.gradients[self.states[0].body_qd]
+            # exit()
             
             self.tape.zero()
             self.iter = self.iter + 1
@@ -178,6 +212,14 @@ class Example:
                 name="target",
                 color=(0.0, 0.0, 0.0),
             )
+            self.renderer.render_box(
+                pos=self.target2,
+                rot=wp.quat_identity(),
+                extents=(0.1, 0.1, 0.1),
+                name="target2",
+                color=(0.0, 1.0, 0.0),
+            )
+            
             self.renderer.render_line_strip(
                     vertices=traj_verts,
                     color=wp.render.bourke_color_map(0.0, 7.0, self.loss.numpy()[0]),
