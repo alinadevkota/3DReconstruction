@@ -47,7 +47,7 @@ def step_kernel(x: wp.array(dtype=wp.transform), grad: wp.array(dtype=wp.transfo
 class Example:
     def __init__(self):
         #! Simulation Params
-        sim_duration =  0.6
+        sim_duration =  2.0
         fps = 60
         self.frame_dt = 1.0 / fps
         frame_steps = int(sim_duration / self.frame_dt)
@@ -67,37 +67,7 @@ class Example:
         PoolEnvironment(builder)
         
         
-        #! Add a body Sphere
-        # body = builder.add_body(
-        #     origin=wp.transform((0.0, 1.0, 0.0), (0,0,0,1)),
-        #     name="body_sphere"
-        # ) 
-        
-        # builder.add_shape_sphere(
-        #     body,
-        #     radius = 0.1,
-        #     density=500,
-        #     collision_group=0,
-        # )
-        
-        #! Add bouncing surface
-        # body2 = builder.add_body(
-        #     origin=wp.transform((0.0, 0.2, 0.0), (0,0,0,1)),
-        #     name="bouncing surface"
-        # ) 
-        
-        # builder.add_shape_box(
-        #         body2,
-        #         hx=2.0,
-        #         hy=0.05,
-        #         hz=2.0,
-        #         density=0,
-        #         collision_group=0, #! dont know
-        #     )
-       
-
-
-        builder.body_qd[0] = [0,0,0,-3,0,0]
+        builder.body_qd[0] = [0,0,0,-3,0,0.5]
            
         #! Finalize Model bulding 
         self.model = builder.finalize(requires_grad=True)
@@ -108,9 +78,10 @@ class Example:
         self.integrator = wp.sim.SemiImplicitIntegrator()
 
         #! Training Params
-        self.target2 = (-1.0279006,   0.4391355,   0.)
+        # self.target2 = (-1.0279006,   0.4391355,   0.)
+        self.target2 = (-1.4070804,   0.44891092,  0.6402814)
         self.loss = wp.zeros(1, dtype=wp.float32, requires_grad=True)
-        self.train_rate_body = 0.01
+        self.train_rate_body = 5e-4
 
 
         # allocate sim states for trajectory
@@ -161,8 +132,11 @@ class Example:
             print('updating body mass')
             x_body_mass = self.model.body_inv_mass
             print(x_body_mass, x_body_mass.grad)
-            wp.launch(step_kernel_mass, dim=len(x_body_mass), inputs=[x_body_mass, x_body_mass.grad, self.train_rate_body])
+            # wp.launch(step_kernel_mass, dim=len(x_body_mass), inputs=[x_body_mass, x_body_mass.grad, self.train_rate_body])
+            wp.launch(step_kernel_mass, dim=1, inputs=[x_body_mass, x_body_mass.grad, self.train_rate_body])
             self.model.body_inv_mass = x_body_mass
+            
+            print("-----------> mass: ", x_body_mass)
             
             self.tape.zero()
             self.iter = self.iter + 1
@@ -211,7 +185,7 @@ if __name__ == "__main__":
 
         for i in tqdm(range(train_iters)):
             example.step()
-            if i % 16 == 0:
+            if i % 2 == 0:
                 # print("rendering now")
                 example.render()
 
