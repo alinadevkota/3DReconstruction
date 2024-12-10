@@ -21,7 +21,12 @@ def loss_kernel(pos: wp.array(dtype=wp.vec3), target: wp.vec3, loss: wp.array(dt
 def loss_kernel_body(pos: wp.array(dtype=wp.transform), target: wp.vec3, loss: wp.array(dtype=float)):
     pose = pos[0]
     trans = wp.transform_get_translation(pose)
+    # wp.print('trans loss in loss kernel:')
+    # wp.print(trans)
+    # wp.print(target)
     delta = trans - target
+    # wp.print(delta)
+    # wp.print('-----------')
     loss[0] = wp.dot(delta, delta)
     
     
@@ -73,7 +78,16 @@ def multi_loss_kernel_body(
 @wp.kernel
 def step_kernel_mass(x: wp.array(dtype=wp.float32), grad: wp.array(dtype=wp.float32), alpha: float):
     tid = wp.tid()
-    x[tid] = wp.abs(x[tid] - grad[tid] * alpha)
+    
+    grad_item = grad[tid] 
+    
+    #! Gradient clipping 
+    if grad_item>100.0:
+        grad_item = 100.0
+    elif grad_item<-100.0:
+        grad_item = -100.0
+        
+    x[tid] = wp.abs(x[tid] - grad_item * alpha)
     
     
 @wp.kernel
@@ -104,13 +118,13 @@ def step_kernel_veloclity(
 class Example:
     def __init__(self):
         #! Simulation Params
-        sim_duration =  1.4
+        sim_duration =  2.0
         fps = 60
         self.frame_dt = 1.0 / fps
         frame_steps = int(sim_duration / self.frame_dt)
 
         # sim frequency
-        self.sim_substeps = 10
+        self.sim_substeps = 8
         self.sim_steps = frame_steps * self.sim_substeps
         self.sim_dt = self.frame_dt / self.sim_substeps
 
@@ -144,10 +158,11 @@ class Example:
         
         self.target2 = (-1.4070804,   0.44891092,  0.6402814)
         
-        self.target3 = (-1.1499655e+00,  4.4891092e-01, -4.9167269e-01)
+        self.target3 = (-2.037689,    0.45728338, -0.29389492)
+        self.target4 = (-1.1499655e+00,  4.4891092e-01, -4.9167269e-01)
         
         self.loss = wp.zeros(1, dtype=wp.float32, requires_grad=True)
-        self.train_rate_body = 1e-1
+        self.train_rate_body = 1e-3
 
 
         # allocate sim states for trajectory
@@ -169,6 +184,7 @@ class Example:
             wp.sim.collide(self.model, self.states[i])
             self.states[i].clear_forces()
             self.integrator.simulate(self.model, self.states[i], self.states[i + 1], self.sim_dt)
+        # print('----------------- simulation done ----------------------')
             # if i%200==0:
                 # print('Trajectory Print:', i)
                 # print(self.states[i].body_q)
@@ -236,6 +252,9 @@ class Example:
            
             inv_mass_learned = x_body_mass.numpy()[0]
             print(inv_mass_learned)
+
+            with open('mass.log', 'a') as fp:
+                fp.write(f"{inv_mass_learned}\n")
 
             m, im, I, iI = sphere_inertia_tensor(1/inv_mass_learned, 0.3)
             em, eim, eI, eiI = get_null_mass()
