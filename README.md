@@ -47,7 +47,7 @@ Estimated values: 186.25, 200.28
 ```bash
 python scripts/track_ball.py --video-file data/ball_drop.mp4
 ```
-
+![](media/real_ball_traj.png)
 
 
 
