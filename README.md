@@ -8,3 +8,16 @@ pip install --upgrade pip setuptools
 pip install -e .
 ```
 
+# Test Scene Renders
+
+Test if the Warp and its dependencies is working well.
+```bash
+python scripts/render_playground.py
+```
+You should see simulation similar to this:
+
+![](media/warp_multi_ball.gif)
+
+# Simulation only density learning
+
+

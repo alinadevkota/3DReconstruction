@@ -5,72 +5,73 @@ import warp.sim.render
 from warp.sim import ModelBuilder
 from warp.sim.render import SimRendererOpenGL
 from warp.sim import SemiImplicitIntegrator, XPBDIntegrator
-
+import numpy as np
+np.set_printoptions(suppress=True, precision=3)
 
 #! matprop3d imports
 from matprop3d.utils.env_utils import PoolEnvironment
+from matprop3d.utils.sim_utils import update_camera
 
-#! Builds Simultation model
-builder = ModelBuilder()
+if __name__=='__main__':
+    #! Builds Simultation model
+    builder = ModelBuilder()
 
+    #! Create Playground
+    ball_properties = [
+    #   [Radius, Density, (x,y)]
+        [0.3, 300, (1.9,-1)],
+        [0.32, 100, (-1,-1)],
+        [0.2, 150, (1,0.6)],
+        [0.31, 100, (0.8,-0.6)]
+    ]
+    PoolEnvironment(builder, ball_properties)
 
-#! Create Playground
-PoolEnvironment(builder)
-
-print(builder.body_count)
-# exit()
-
-
-#! Add motions
-x_vel = 50
-y_vel = -10
-builder.body_qd[4] = [0,0,0,x_vel,0,y_vel]
-
-
-#! Finalize building
-model = builder.finalize("cuda")
-model.ground = True
-state = model.state()
-
-#! Integrator is like physics engine
-integrator = SemiImplicitIntegrator()
-# integrator = XPBDIntegrator()
-
-#! Init Renderer
-renderer = SimRendererOpenGL(
-    model=model,
-    path="output/",
-    scaling=1.0,
-)
-
-#! Change camera pose
-import numpy as np
-camera_pos = np.array([5,5,0])
-camera_front = np.subtract((0, 0, 0), camera_pos)  # `target_position`
-camera_front = camera_front / np.linalg.norm(camera_front)  # Normalize
-camera_up = (0, 1, 0)
-renderer.update_view_matrix(
-    cam_pos=camera_pos, cam_front=camera_front, cam_up=camera_up
-)
-
-fps = 30.0
-sim_substeps = 8
-dt = 1/fps
-sim_dt = dt/sim_substeps
-
-state1, state2 = None, None
-state1 = state
+    #! Add motions
+    builder.body_qd[0] = [0,0,0,2,0,-1]
+    builder.body_qd[1] = [0,0,0,-5,0,2]
+    builder.body_qd[2] = [0,0,0,1,0,-3]
+    builder.body_qd[3] = [0,0,0,7,0,4]
 
 
-#! Simulation begins here
-for i in range(10000):
-    state2=state1
-    wp.sim.collide(model, state)
-   
-    state.clear_forces()
-    integrator.simulate(model, state1, state2, dt=sim_dt)
-   
-    # Render the frame
-    renderer.begin_frame(i * sim_dt)
-    renderer.render(state1)
-    renderer.end_frame()
+    #! Finalize building
+    model = builder.finalize("cuda")
+    model.ground = True
+    state = model.state()
+
+    #! Integrator is like physics engine
+    integrator = SemiImplicitIntegrator()
+    # integrator = XPBDIntegrator()
+
+    #! Init Renderer
+    renderer = SimRendererOpenGL(
+        model=model,
+        path="Pool Environment Simulation",
+        scaling=1.0,
+    )
+
+    #! Change camera pose
+    update_camera(renderer, cam=(5,5,0))
+
+    fps = 30.0
+    sim_substeps = 8
+    dt = 1/fps
+    sim_dt = dt/sim_substeps
+
+    state1, state2 = None, None
+    state1 = state
+
+    simulation_steps = 3000
+    #! Simulation begins here
+    for i in range(simulation_steps):
+        state2=state1
+        wp.sim.collide(model, state)
+    
+        state.clear_forces()
+        integrator.simulate(model, state1, state2, dt=sim_dt)
+        
+        #! Render the frame
+        renderer.begin_frame(i * sim_dt)
+        renderer.render(state1)
+        renderer.end_frame()
+        
+    print("Simulation Completed.")
