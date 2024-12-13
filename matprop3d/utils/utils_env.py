@@ -1,5 +1,5 @@
 
-from matprop3d.utils.sim_utils import create_body, Box, Sphere
+from matprop3d.utils.utils_sim import create_body, Box, Sphere
 
 
 class PoolEnvironment():

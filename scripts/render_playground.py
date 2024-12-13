@@ -9,8 +9,8 @@ import numpy as np
 np.set_printoptions(suppress=True, precision=3)
 
 #! matprop3d imports
-from matprop3d.utils.env_utils import PoolEnvironment
-from matprop3d.utils.sim_utils import update_camera
+from matprop3d.utils.utils_env import PoolEnvironment
+from matprop3d.utils.utils_sim import update_camera
 
 if __name__=='__main__':
     #! Builds Simultation model
