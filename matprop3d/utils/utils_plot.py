@@ -19,14 +19,21 @@ def plot_sphere_density_trajectory(ax, traj_file, radius, gt, name):
     mass = 1/inv_mass
     vol = (4/3)*np.pi*radius*radius*radius
     density = mass/vol
-   
-    ax.axhline(y=gt, color='g', linestyle='--', label='GT Density')
-    ax.set_yscale('log')
+    
+    print(density[-1])
+  
+    if gt is not None:
+        ax.axhline(y=gt, color='g', linestyle='--', label='GT Density')
+        
+    # ax.set_yscale('log')
     ax.set_xlabel('Training Iterations')
     ax.set_ylabel('Density (kg/m3)')
     ax.set_title(name)
     ax.plot(density)
-    ax.legend()
+    ax.grid()
+    
+    if gt is not None:
+        ax.legend()
     
     
 if __name__=='__main__':

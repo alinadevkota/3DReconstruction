@@ -49,6 +49,16 @@ python scripts/track_ball.py --video-file data/ball_drop.mp4
 ```
 ![](media/real_ball_traj.png)
 
+```bash
+python3 scripts/learn_density_real.py
+```
+
+![](media/real_ball_drop_in_sim.gif)
+
+This gives density estimation plot as such:
+
+![](media/density_estimation_real.png)
+
 
 
 

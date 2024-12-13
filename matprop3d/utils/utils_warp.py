@@ -5,6 +5,13 @@ import warp.sim.render
 
 #! Loss Kernels 
 @wp.kernel
+def loss_kernel(pos: wp.array(dtype=wp.vec3), target: wp.vec3, loss: wp.array(dtype=float)):
+    # distance to target
+    delta = pos[0] - target
+    loss[0] = wp.dot(delta, delta)
+
+    
+@wp.kernel
 def loss_kernel_body(pos: wp.array(dtype=wp.transform), target: wp.vec3, loss: wp.array(dtype=float)):
     pose = pos[0]
     trans = wp.transform_get_translation(pose)
