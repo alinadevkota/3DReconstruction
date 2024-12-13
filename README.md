@@ -1,5 +1,11 @@
 # MatProp3D: Learning Material Properties for interactive 3D reconstruction
 
+# Clone Repository
+```bash
+git clone --recursive https://github.com/alinadevkota/3DReconstruction.git
+git submodule update --init --recursive
+```
+
 # Environment Setup
 ```bash
 conda create -n matprop3d python=3.1
@@ -42,6 +48,31 @@ Estimated values: 186.25, 200.28
 
 ![](media/density_estimation.png)
 
+# Real Data Preparation
+
+First, collect bunch of images of an static scene. For this you can capture images of a target object from multiple views and put it inside a directory. Or you can capture a video an then extract the video frames using script below.
+```
+python scripts/video_frame_extractor.py --video-file /path/to/video/file --output-dir /path/to/ws/outputdir
+```
+
+# Static 3D Reconstruction using Gaussian Splatting
+
+From a set of images, you can do point cloud reconstruction using COLMAP which also recovers the camera poses that can be used to train Gaussian Splatting.
+
+Run COLMAP:
+
+```bash
+ns-process-data images --data $WORKSPACE/images --output-dir $WORKSPACE/colmap
+```
+
+Train a Gaussain Splatting Model:
+
+```bash
+ns-train splatfacto --data $WORKSPACE/colmap --output-dir $WORKSPACE/gaussian_splats
+```
+
+Save the ply file at: `$WORKSPACE/gaussian.ply`
+
 # Learning Ball Density (in Real)
 
 ```bash
@@ -61,6 +92,8 @@ This gives density estimation plot as such:
 
 
 # Integrate Material Property with Static Gaussian Splats
+
+Follow the tutorial [here](https://github.com/rashikshrestha/Interact3D) to inject density to get dynamic gaussian splat renders.
 
 ![](media/tennis_drop.gif)
 
