@@ -60,6 +60,7 @@ This gives density estimation plot as such:
 ![](media/density_estimation_real.png)
 
 
+# Integrate Material Property with Static Gassian Splats
 
-
+![](media/tennis_drop.gif)
 
