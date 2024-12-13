@@ -194,5 +194,5 @@ if __name__ == "__main__":
                 
     fig, ax = plt.subplots(nrows=1,ncols=1, figsize=(5,5))
     ws = Path(os.getenv('MATPROP3DWS'))
-    plot_sphere_density_trajectory(ax, ws/'real_inv_mass_learning.txt', radius=0.04, gt=1068, name='Real Ball')
+    plot_sphere_density_trajectory(ax, ws/'real_inv_mass_learning.txt', radius=0.0335, gt=None, name='Real Ball')
     plt.savefig(ws/'density_estimation_real.png')
